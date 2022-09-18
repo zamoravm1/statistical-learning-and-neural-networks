@@ -1,0 +1,129 @@
+%% Laboratory #2 - Statistical Learning
+% EXERCISES 2, 3 AND 4 HERE
+%% Exercise 2
+load('XwindowsDocData.mat');
+[n_samples , n_features]=size(xtrain);
+Nj_1=zeros(1,n_features);
+Nc_2=0;
+Nj_2=zeros(1,n_features);
+theta_jc=[];
+%% The prior probabilities of each class (pi_c)
+% Total docs (samples) per document type=1 (class).
+Nc_1=sum(ytrain(:,1)==1);
+% Total docs (samples) per document type=2 (class).
+Nc_2=sum(ytrain(:,1)==2);
+pi_c=[Nc_1,Nc_1]/n_samples;
+%% The probability that feature j is equal to 1 in class c (theta_jc)
+theta_jc(:,1)=sum(xtrain(1:Nc_1,:)==1)/Nc_1;
+theta_jc(:,2)=sum(xtrain(Nc_1+1:end,:)==1)/Nc_2;
+disp(['The vector Pi_c is: [',num2str(pi_c),']'])
+%disp(['The vector of class-conditional densities (theta) is: [',theta_jc,']'])
+%% Display words per class.
+figure(1)
+subplot(2,1,1)
+bar(theta_jc(1:end,1))
+title('Microsoft Windows')
+xlabel('Words')
+ylabel('Likehood')
+grid minor
+subplot(2,1,2)
+bar(theta_jc(1:end,2))
+title('Windows X')
+xlabel('Words')
+ylabel('Likehood')
+grid minor
+%% Display Words
+figure(2)
+hold on
+grid on
+stem(theta_jc(:,1),':xr')
+stem(theta_jc(:,2),':*b')
+title('Class-conditional by word')
+xlabel('Words')
+ylabel('Likehood')
+legend('Microsoft Windows','X Windows')
+% Filtering uninformative words
+noinfo_words=(abs(theta_jc(1:end,1)-theta_jc(1:end,2))) <= 0.05;
+figure(3)
+hold on
+grid on
+stem(find(noinfo_words ~= 0),  theta_jc(noinfo_words ~= 0,1), ':xr')
+stem(find(noinfo_words ~= 0),  theta_jc(noinfo_words ~= 0,2), ':*b')
+title('Class-conditional by word, uninformative words excluded')
+legend('Microsoft Windows', 'X Windows')
+%% Exercise 3
+%Naïve Bayes Classifier (NBC) for the Bag of Words (BoW)
+for i=1:length(xtrain)
+    MAP_trainset(i,:)=sum(log(theta_jc(find(xtrain(i,:)==1),:)))+sum(log(1-theta_jc(find(xtrain(i,:)==0),:)))+...
+        log(pi_c(1));
+end
+for i=1:length(xtest)
+    MAP_testset(i,:)=sum(log(theta_jc(find(xtest(i,:)==1),:)))+sum(log(1-theta_jc(find(xtest(i,:)==0),:)))+...
+        log(pi_c(1));
+end
+class_NBC_testset=zeros(900,1);
+for i=1:length(xtest)
+    if MAP_testset(i,1)>MAP_testset(i,2)
+        class_NBC_testset(i)=1;
+    else
+        class_NBC_testset(i)=2;
+    end
+end
+class_NBC_trainset=zeros(900,1);
+for i=1:length(xtrain)
+    if MAP_trainset(i,1)>MAP_trainset(i,2)
+        class_NBC_trainset(i)=1;
+    else
+        class_NBC_trainset(i)=2;
+    end
+end
+correct_training=0;
+correct_test=0;
+for i=1:length(ytrain)
+    if ytrain(i)==class_NBC_trainset(i)
+        correct_training=correct_training+1;
+    end
+    if ytest(i)==class_NBC_testset(i)
+        correct_test=correct_test+1;
+    end
+end
+accuracy_test=correct_test/length(ytest);
+accuracy_train=correct_training/length(ytrain);
+accu=[accuracy_test,accuracy_train];
+disp(['Accuracy for TEST AND TRAINING datasets:',num2str(accu)])
+%% Exercise 4
+tao=linspace(0,500,50000);
+class_ROC_train=zeros(900,1);
+class_ROC_test=zeros(900,1);
+TPR_FPR=zeros(length(tao),2);
+new_ROC_class=zeros(length(MAP_trainset));
+for i=1:length(tao)
+    for j=1:length(MAP_trainset)
+        div=MAP_trainset(j,1)/MAP_trainset(j,2);
+        if div > tao(i)
+            new_ROC_class(j)=1;
+        else
+            new_ROC_class(j)=2;
+        end
+    end
+    acum_pr=0;
+    acum_fr=0;
+    for k=1:length(new_ROC_class)
+        if new_ROC_class(k)==1 && new_ROC_class(k)==ytrain(k)
+            acum_pr=acum_pr+1;
+        elseif new_ROC_class(k)==1 && new_ROC_class(k)~=ytrain(k)
+            acum_fr=acum_fr+1;
+        end
+    end
+    disp(['Number of hits: ',num2str(acum_pr),' Number of misses: ',num2str(acum_fr)])
+    TPR_FPR(i,1)=acum_pr/450;
+    TPR_FPR(i,2)=acum_fr/450;
+end
+figure(4)
+plot(TPR_FPR(:,1),TPR_FPR(:,2))
+%[X,Y,T,AUC] = perfcurve(species(51:end,:),scores,'virginica');
+xlim([0 1])
+title('ROC')
+xlabel('False positive rate') 
+ylabel('True positive rate')
+title('ROC for Classification by Logistic Regression')
